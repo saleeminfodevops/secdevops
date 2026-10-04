@@ -1,0 +1,16 @@
+severity:
+  - CRITICAL
+  - HIGH
+  - MEDIUM
+
+skip-db-update: false
+db-repository: "ghcr.io/aquasecurity/trivy-db"
+
+# Format options: json, table, sarif, cyclonedx
+format: "json"
+
+# Output file
+output: "scan-results.json"
+
+# Ignore unfixed vulnerabilities
+ignore-unfixed: false
