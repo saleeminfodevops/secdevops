@@ -129,7 +129,8 @@ Before deployment, verify your local system has the following CLI tools installe
 
 * **Saleem Shaikh** 
 * **Abdulkadir Boxwala** 
-* **Manikanadan Muthu** 
+* **Manikanadan Muthu**
+* **Punit Patel** 
 * **Gautam Gohel** 
 
 ---
