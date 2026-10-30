@@ -1,19 +1,55 @@
-name: Container Security Scan
-on: [push, pull_request]
+name: DevSecOps Vulnerability Scan Pipeline
+
+on:
+  push:
+    branches: [ "main", "develop" ]
+  pull_request:
+    branches: [ "main" ]
+  schedule:
+    - cron: '0 8 * * 1-5' # Daily baseline scan (Sprint 3)
+
+env:
+  IMAGE_NAME: "my-app"
+  IMAGE_TAG: "${{ github.sha }}"
+  SEVERITY_THRESHOLD: "HIGH,CRITICAL" # Configuration threshold (Sprint 2)
 
 jobs:
-  scan:
+  build-and-scan:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Run Trivy Vulnerability Scanner
+      - name: Build Docker Image
+        run: |
+          docker build -t ${{ env.IMAGE_NAME }}:${--env.IMAGE_TAG } .
+          docker tag ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }} ${{ env.IMAGE_NAME }}:latest
+
+      - name: Run Trivy Vulnerability Scanner (Sprint 1 & 2)
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: 'ubuntu:18.04'
-          format: 'table'
-          exit-code: '1' # Fails the pipeline if vulnerabilities match criteria
+          image-ref: '${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}'
+          format: 'json'
+          output: 'trivy-report.json' # Structured report generation (Sprint 3)
+          severity: '${{ env.SEVERITY_THRESHOLD }}'
+          exit-code: '1' # Fails the pipeline if vulnerabilities matching threshold are caught (Sprint 2)
           ignore-unfixed: true
-          vuln-type: 'os,library'
-          severity: 'CRITICAL,HIGH'
+          trivyignores: '.trivyignore' # Advanced exception handling lookup (Sprint 5)
+
+      - name: Upload Security Report Artifact
+        uses: actions/upload-artifact@v4
+        if: always() # Ensures reports are preserved even if the scanning phase fails
+        with:
+          name: vulnerability-report
+          path: trivy-report.json
+          retention-days: 30
+
+      - name: Send Slack Notification (Sprint 3)
+        uses: 8398a7/action-slack@v3
+        with:
+          status: ${{ job.status }}
+          fields: repo,message,commit,author,action,eventName,ref,workflow,job,took
+          text: 'Vulnerability Scan Complete. Status: ${{ job.status }}. View artifact log for detailed breakdown.'
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        if: always() 
