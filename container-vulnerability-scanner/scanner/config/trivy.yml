@@ -1,0 +1,11 @@
+# Trivy Config File
+format: json
+cache-dir: /tmp/.trivy-cache
+severity:
+  - HIGH
+  - CRITICAL
+vuln-type:
+  - os
+  - library
+scanners:
+  - vuln

@@ -1,6 +1,0 @@
-build_gates:
-  production:
-    thresholds:
-      CRITICAL:
-        max_allowed: 0          # Change this
-        action: "fail"

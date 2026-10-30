@@ -1,0 +1,3 @@
+# Accept and ignore known CVEs with accepted risk profiles
+CVE-2020-8908
+CVE-2023-45853

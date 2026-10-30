@@ -1,4 +1,0 @@
-notifications:
-  slack:
-    channel: "#security-alerts"  # Change this
-    mention: "@security-team"    # Change this
