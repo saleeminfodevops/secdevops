@@ -1,30 +1,45 @@
 #!/bin/bash
 set -e
 
-IMAGE_NAME=${1:-"vulnerables/web-dvwa:latest"}
 OUTPUT_DIR="/home/devsecops/container-vulnerability-scanner/reporting"
-mkdir -p "$OUTPUT_DIR"
-
 BASE_DIR="/home/devsecops/container-vulnerability-scanner/scanner"
 
-echo "=== Pulling Target Image: $IMAGE_NAME ==="
-docker pull "$IMAGE_NAME"
+mkdir -p "$OUTPUT_DIR"
 
-echo "=== Executing Trivy Vulnerability Scan ==="
-docker run --rm \
-  -v /var/run/docker.sock:/var/run/docker.sock \
-  -v "$BASE_DIR/config:/home/devsecops/container-vulnerability-scanner/scanner/config" \
-  -v "$OUTPUT_DIR:/home/devsecops/container-vulnerability-scanner/reporting" \
-  aquasec/trivy:latest image \
-  --format json \
-  --config "/home/devsecops/container-vulnerability-scanner/scanner/config/trivy.yml" \
-  --output "/home/devsecops/container-vulnerability-scanner/reporting/scan_report.json" \
-  "$IMAGE_NAME"
+# 1. Get a list of all local docker images in "repository:tag" format
+# Excludes <none> dangling images
+echo "=== Fetching all local Docker images ==="
+IMAGES=$(docker images --format "{{.Repository}}:{{.Tag}}" | grep -v "<none>")
 
-echo "Scan report generated at $OUTPUT_DIR/scan_report.json"
+# 2. Loop through each image and scan it
+for IMAGE_NAME in $IMAGES; do
+    echo "--------------------------------------------------"
+    echo "=== Executing Trivy Vulnerability Scan for: $IMAGE_NAME ==="
+    
+    # Sanitize image name to use as a safe filename (e.g., library/ubuntu:latest -> library_ubuntu_latest)
+    SAFE_NAME=$(echo "$IMAGE_NAME" | tr '/:' '__')
+    REPORT_FILE="$OUTPUT_DIR/scan_report_${SAFE_NAME}.json"
 
-echo "==== Processing Metrics & Sending Alert ==="
-python3 /home/devsecops/container-vulnerability-scanner/reporting/generate_report.py
+    # Run Trivy scan
+    docker run --rm \
+      -v /var/run/docker.sock:/var/run/docker.sock \
+      -v "$BASE_DIR/config:/home/devsecops/container-vulnerability-scanner/scanner/config" \
+      -v "$OUTPUT_DIR:/home/devsecops/container-vulnerability-scanner/reporting" \
+      aquasec/trivy:latest image \
+      --format json \
+      --config "/home/devsecops/container-vulnerability-scanner/scanner/config/trivy.yml" \
+      --output "/home/devsecops/container-vulnerability-scanner/reporting/scan_report_${SAFE_NAME}.json" \
+      "$IMAGE_NAME"
 
-echo "Scan report alert sending on slack"
+    echo "Scan report generated at $REPORT_FILE"
 
+    # 3. Process metrics and alert per image
+    echo "==== Processing Metrics & Sending Alert for $IMAGE_NAME ==="
+    # Note: If your python script expects the filename as an argument, pass it here like: 
+    # python3 .../generate_report.py "$REPORT_FILE"
+    python3 /home/devsecops/container-vulnerability-scanner/reporting/generate_report.py
+    
+    echo "Scan report alert sending on slack for $IMAGE_NAME"
+done
+
+echo "=== All images scanned successfully! ==="
